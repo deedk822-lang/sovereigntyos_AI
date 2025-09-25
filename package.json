@@ -1,0 +1,67 @@
+{
+  "name": "sovereign-manus",
+  "version": "1.0.0",
+  "description": "SovereigntyOS: Production-ready AI workflow automation platform with Manus API integration",
+  "main": "src/services/server.js",
+  "scripts": {
+    "start": "node src/services/server.js",
+    "dev": "nodemon src/services/server.js",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "docker:build": "docker build -t sovereign-manus .",
+    "docker:run": "docker run -p 3000:3000 sovereign-manus",
+    "generate-sim-commands": "node sim_commands/sim_cmds_generator.js",
+    "security:audit": "npm audit --audit-level moderate"
+  },
+  "keywords": [
+    "sovereignty",
+    "ai",
+    "workflow",
+    "automation",
+    "manus",
+    "sim.ai",
+    "parliamentary",
+    "crisis-response"
+  ],
+  "author": "SovereigntyOS Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "compression": "^1.7.4",
+    "express-rate-limit": "^6.8.1",
+    "dotenv": "^16.3.1",
+    "axios": "^1.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "pg": "^8.11.3",
+    "redis": "^4.6.7",
+    "winston": "^3.10.0",
+    "express-validator": "^7.0.1",
+    "uuid": "^9.0.0",
+    "node-cron": "^3.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.6.2",
+    "supertest": "^6.3.3",
+    "eslint": "^8.47.0",
+    "prettier": "^3.0.2",
+    "@jest/globals": "^29.6.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deedk822-lang/sovereign-manus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/deedk822-lang/sovereign-manus/issues"
+  },
+  "homepage": "https://github.com/deedk822-lang/sovereign-manus#readme"
+}
