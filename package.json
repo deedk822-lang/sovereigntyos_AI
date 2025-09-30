@@ -1,71 +1,24 @@
 {
   "name": "sovereigntyos-ai",
   "version": "1.0.0",
-  "description": "SovereigntyOS: Production-ready AI workflow automation platform with Supabase and LocalAI integration",
-  "main": "src/services/server.js",
+  "description": "Enterprise AI-Native Operating System for South Africa",
+  "type": "module",
   "scripts": {
-    "start": "node src/services/server.js",
-    "dev": "nodemon src/services/server.js",
-    "test": "jest --coverage --passWithNoTests",
-    "test:watch": "jest --watch --passWithNoTests",
-    "lint": "eslint src/ --fix || echo 'Linting completed with warnings'",
-    "docker:build": "docker build -t sovereigntyos-ai .",
-    "docker:run": "docker run -p 3000:3000 sovereigntyos-ai",
-    "generate-sim-commands": "node sim_commands/sim_cmds_generator.js",
-    "security:audit": "npm audit --audit-level moderate || echo 'Security audit completed'",
-    "db:setup": "node scripts/verify-database.js",
-    "localai:deploy": "bash scripts/deploy-localai.sh",
-    "postinstall": "echo 'SovereigntyOS dependencies installed successfully'"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "npm run dev",
+    "deploy": "npm run build && npm run preview"
   },
-  "keywords": [
-    "sovereignty",
-    "ai",
-    "workflow",
-    "automation",
-    "parliamentary",
-    "crisis-response",
-    "supabase",
-    "localai",
-    "cost-optimization"
-  ],
-  "author": "SovereigntyOS Team",
-  "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "helmet": "^7.0.0",
-    "compression": "^1.7.4",
-    "express-rate-limit": "^6.8.1",
-    "express-validator": "^7.0.1",
-    "dotenv": "^16.3.1",
-    "axios": "^1.5.0",
-    "jsonwebtoken": "^9.0.2",
-    "bcryptjs": "^2.4.3",
-    "winston": "^3.10.0",
-    "uuid": "^9.0.0",
-    "node-cron": "^3.0.2",
-    "@supabase/supabase-js": "^2.38.0",
-    "pg": "^8.11.3",
-    "redis": "^4.6.7"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.0.2",
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "jest": "^29.6.2",
-    "supertest": "^6.3.3",
-    "eslint": "^8.47.0",
-    "prettier": "^3.0.2",
-    "@jest/globals": "^29.6.2"
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/deedk822-lang/sovereigntyos_AI.git"
-  },
-  "bugs": {
-    "url": "https://github.com/deedk822-lang/sovereigntyos_AI/issues"
-  },
-  "homepage": "https://github.com/deedk822-lang/sovereigntyos_AI#readme"
+    "@vitejs/plugin-react": "^4.0.3",
+    "vite": "^4.4.5"
+  }
 }

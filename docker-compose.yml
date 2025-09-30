@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  sovereigntyos:
+    build: .
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    
+  # Optional: Add backend when ready
+  # backend:
+  #   build: ./api
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - GEMINI_API_KEY=${GEMINI_API_KEY}
+  #   restart: unless-stopped
+
+networks:
+  default:
+    name: sovereigntyos-network
