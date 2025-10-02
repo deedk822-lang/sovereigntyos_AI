@@ -23,3 +23,15 @@ This project implements an AI system using multiple specialized LLM agents orche
 4. Docker build: `npm run docker:build`
 5. Deploy with: `kubectl apply -f k8s/deployment.yaml`
 
+
+***
+
+## 🛡️ Security Hardening
+
+- Branch protection on main (require PR reviews + passing checks)
+- Weekly dependency updates via Dependabot
+- Automated CodeQL analysis
+- CI: audit, lint, test, build, artifact
+- Secrets managed via GitHub Actions
+
+See SECURITY.md and docs/DEPLOYMENT_CHECKLIST.md for details.

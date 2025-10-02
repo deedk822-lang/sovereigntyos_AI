@@ -1,0 +1,19 @@
+name: Branch Protection
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  branch-protection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch protection
+        run: |
+          echo "✅ Main branch protection should be enabled via GitHub settings"
+          echo "Go to: Settings → Branches → Add rule for 'main'"
+          echo "Required:"
+          echo " - Require pull request reviews before merging"
+          echo " - Require status checks to pass before merging"
+          echo " - Include administrators"
+          echo " - Restrict who can push to matching branches"

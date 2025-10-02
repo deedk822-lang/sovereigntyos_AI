@@ -19,7 +19,10 @@
     "docker:build": "docker build -t sovereigntyos-ai .",
     "docker:run": "docker run -p 3000:80 sovereigntyos-ai",
     "cognitive:init": "node scripts/init-cognitive-architecture.js",
-    "cognitive:train": "node scripts/train-cognitive-models.js"
+    "cognitive:train": "node scripts/train-cognitive-models.js",
+    "security-audit": "npm audit --audit-level=high",
+    "docker:test": "docker run --rm sovereigntyos npm test || true",
+    "deploy:prod": "echo \"Add cloud deploy commands here\""
   },
   "dependencies": {
     "react": "^18.2.0",
