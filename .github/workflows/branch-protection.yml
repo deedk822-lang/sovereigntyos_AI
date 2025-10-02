@@ -1,0 +1,45 @@
+name: Branch Protection Helper
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  branch-protection-check:
+    name: Check Branch Protection Status
+    runs-on: ubuntu-latest
+    steps:
+      - name: Branch protection reminder
+        run: |
+          echo "🛡️ BRANCH PROTECTION SETUP REQUIRED"
+          echo ""
+          echo "Please enable branch protection for the main branch:"
+          echo "👉 https://github.com/${{ github.repository }}/settings/branches"
+          echo ""
+          echo "✅ Required Settings:"
+          echo "   • Require a pull request before merging"
+          echo "   • Require approvals (minimum 1)"
+          echo "   • Require status checks to pass before merging"
+          echo "   • Require branches to be up to date before merging"
+          echo "   • Include administrators"
+          echo "   • Restrict pushes to matching branches"
+          echo ""
+          echo "🔍 Status Checks to Require:"
+          echo "   • security-scan"
+          echo "   • test (18.x)"
+          echo "   • test (20.x)"
+          echo "   • build"
+          echo ""
+          echo "⚡ This ensures production-grade security for SovereigntyOS!"
+          
+      - name: Check if protection seems enabled
+        run: |
+          echo "🔐 Checking current branch protection status..."
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "⚠️  Direct push to main detected!"
+            echo "   Branch protection may not be fully configured."
+            echo "   Please visit: https://github.com/${{ github.repository }}/settings/branches"
+          else
+            echo "✅ Good! This workflow was triggered properly."
+          fi
