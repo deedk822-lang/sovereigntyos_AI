@@ -1,0 +1,120 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scout-monetization
+  namespace: sovereigntyos
+  labels:
+    app: scout-monetization
+    component: intelligence
+    schedule: biweekly
+spec:
+  # Runs 1st and 15th of each month at 02:00 SAST
+  schedule: "0 2 1,15 * *"
+  timeZone: "Africa/Johannesburg"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  suspend: false
+  
+  jobTemplate:
+    metadata:
+      labels:
+        app: scout-monetization
+        job-type: biweekly-collection
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600  # 1 hour max
+      ttlSecondsAfterFinished: 86400  # Clean up after 24 hours
+      
+      template:
+        metadata:
+          labels:
+            app: scout-monetization
+            run-type: monetization
+        spec:
+          restartPolicy: Never
+          
+          containers:
+            - name: scout
+              # Image will be set by CI/CD to match main app
+              image: IMAGE_PLACEHOLDER_SET_BY_CI
+              imagePullPolicy: Always
+              
+              command: ["npm", "run", "scout:monetization"]
+              
+              env:
+                - name: COLLECTION_MODE
+                  value: "monetization-biweekly"
+                - name: FOCUS_AREAS
+                  value: "ai,crypto,sovereignty,technology,startups,web3"
+                - name: MAX_COLLECTION_TIME
+                  value: "50m"
+                - name: NODE_ENV
+                  value: "production"
+                - name: LOG_LEVEL
+                  value: "info"
+                - name: DASHSCOPE_BASE_URL
+                  value: "https://dashscope-intl.aliyuncs.com/api/v1"
+              
+              envFrom:
+                - secretRef:
+                    name: monetization-api-keys
+                    optional: true
+                - secretRef:
+                    name: model-keys
+                    optional: true
+              
+              resources:
+                requests:
+                  cpu: "300m"
+                  memory: "512Mi"
+                  ephemeral-storage: "1Gi"
+                limits:
+                  cpu: "1500m"
+                  memory: "2Gi"
+                  ephemeral-storage: "2Gi"
+              
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                runAsUser: 1000
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              
+              volumeMounts:
+                - name: tmp-data
+                  mountPath: /app/data
+                - name: tmp-logs
+                  mountPath: /tmp
+          
+          volumes:
+            - name: tmp-data
+              emptyDir:
+                sizeLimit: 100Mi
+            - name: tmp-logs
+              emptyDir:
+                sizeLimit: 50Mi
+          
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 1000
+          
+          # Auto Mode optimization
+          tolerations:
+            - key: "virtual-node"
+              operator: "Equal"
+              value: "true"
+              effect: "NoSchedule"
+          
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  preference:
+                    matchExpressions:
+                      - key: "type"
+                        operator: "In"
+                        values: ["virtual-node", "auto-mode"]
