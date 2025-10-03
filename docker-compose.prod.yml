@@ -2,14 +2,23 @@ version: '3.8'
 
 services:
   app:
+main
     build:
       context: .
       target: production
     container_name: sovereigntyos-app
+
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: sh -c "npm ci && npm run build && npx vite preview --host 0.0.0.0 --port 3000"
+chore/security-hardening
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+ main
       - PORT=3000
       - DATABASE_URL=postgresql://${DB_USER:-sovereignty}:${DB_PASSWORD:-sovereignty123}@postgres:5432/${DB_NAME:-sovereignty}
       - REDIS_URL=redis://redis:6379
@@ -144,3 +153,21 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/16
+
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+chore/security-hardening

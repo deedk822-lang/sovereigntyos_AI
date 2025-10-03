@@ -2,6 +2,7 @@
 
 ## Supported Versions
 
+ main
 We actively support and provide security updates for the following versions of SovereigntyOS:
 
 | Version | Supported          | Status |
@@ -173,3 +174,23 @@ We thank the security researchers and community members who help keep Sovereignt
 **Next Review**: January 2, 2026
 
 This security policy is reviewed quarterly and updated as needed to reflect current best practices and threat landscape changes.
+
+| Version | Supported |
+|--------:|:---------:|
+| 1.0.x   | ✅        |
+| < 1.0   | ❌        |
+
+## Reporting a Vulnerability
+
+Email: security@sovereigntyos.ai  
+We will acknowledge within 24 hours and aim to ship patches for critical issues within 7 days.
+
+## Security Measures
+
+- Branch protection on main
+- Required PR reviews and status checks
+- Weekly dependency updates via Dependabot
+- Automated CodeQL analysis
+- Secrets in GitHub Actions only (no secrets in repo)
+- Environment variable encryption in CI
+- chore/security-hardening

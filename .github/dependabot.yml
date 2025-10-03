@@ -1,13 +1,19 @@
+main
 # Dependabot configuration for SovereigntyOS
 # Automatically keeps dependencies up to date
 
 version: 2
 updates:
   # Enable version updates for npm packages
+
+version: 2
+updates:
+chore/security-hardening
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+main
       day: "monday"
       time: "04:00"
       timezone: "Africa/Johannesburg"
@@ -52,10 +58,15 @@ updates:
         update-types: ["version-update:semver-major"]
 
   # Enable version updates for GitHub Actions
+
+    open-pull-requests-limit: 10
+
+chore/security-hardening
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+main
       day: "monday"
       time: "04:30"
       timezone: "Africa/Johannesburg"
@@ -85,3 +96,5 @@ updates:
     labels:
       - "docker"
       - "automated"
+
+ chore/security-hardening
