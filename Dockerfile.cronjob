@@ -1,54 +1,73 @@
-# Multi-stage build for SovereigntyOS CronJob - Production Hardened
-# Build stage
+#
+# Dockerfile for SovereigntyOS CronJob (Scout Monetization Agent)
+#
+# This Dockerfile uses a multi-stage build to create a secure and minimal
+# production image for running the Node.js-based cron job script.
+# It includes security best practices like using a non-root user.
+#
+
+# --- Build Stage ---
+# The "builder" stage is responsible for installing dependencies and building
+# the application source code (transpiling TypeScript to JavaScript).
 FROM node:20-alpine AS builder
 
-# Set working directory
+# Set the working directory within the container.
 WORKDIR /app
 
-# Copy package files
+# Copy package manifests to leverage Docker's layer caching.
 COPY package*.json ./
 
-# Install dependencies with clean install for reproducible builds
+# Install production dependencies using 'npm ci' for reproducible builds.
+# Also, clean the npm cache to keep the layer size down.
 RUN npm ci --only=production && \
     npm cache clean --force
 
-# Copy application source
+# Copy the rest of the application source code.
 COPY . .
 
-# Build the application
+# Run the build script defined in package.json to transpile the code.
 RUN npm run build
 
-# Production stage - Minimal runtime image
+# --- Production Stage ---
+# The "production" stage creates the final, minimal image for running the cron job.
+# It starts from a clean Node.js image to avoid including build-time dependencies.
 FROM node:20-alpine AS production
 
-# Create non-root user and group
+# Security Best Practice: Create a dedicated, non-root user and group to run the application.
+# This limits the potential impact of a container compromise.
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Set working directory
+# Set the working directory for the production stage.
 WORKDIR /app
 
-# Copy built artifacts from builder stage
+# Copy the essential built artifacts from the "builder" stage.
+# --chown sets the owner of the copied files to the non-root user.
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
 COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appgroup /app/package*.json ./
 
-# Create necessary directories with proper permissions
+# Create directories for data and logs and set the correct permissions.
+# This ensures the application can write to these directories when running as the non-root user.
 RUN mkdir -p /app/data /app/logs && \
     chown -R appuser:appgroup /app
 
-# Set environment variables
+# Set environment variables for the production environment.
 ENV NODE_ENV=production \
     PORT=3000
 
-# Switch to non-root user
+# Switch the container's user to the non-root user for added security.
 USER appuser
 
-# Health check
+# Define a health check to allow Docker or a container orchestrator (like Kubernetes)
+# to verify that the container is running correctly.
+# This example would need an actual health endpoint in the running script.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Expose port (informational)
+# Expose the port the application will run on. This is informational;
+# the actual port mapping is done when running the container.
 EXPOSE 3000
 
-# Run the CronJob script
-CMD ["node", "dist/scout-monetization.js"]
+# The command to run when the container starts.
+# This executes the main script for the Scout Monetization agent.
+CMD ["node", "dist/scout/run-monetization.js"]

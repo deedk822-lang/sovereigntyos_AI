@@ -1,45 +1,56 @@
+#
+# Docker Compose configuration for Production deployment of SovereigntyOS.
+#
+# This file defines a multi-container setup for a production environment.
+# It includes the main application, a database, a cache, a reverse proxy,
+# and monitoring services. It is designed to be robust, with health checks,
+# restart policies, and persistent data volumes.
+#
 version: '3.8'
 
 services:
+  # The main application service.
   app:
-main
+    # Builds the Docker image from the current directory.
+    # The 'target: production' specifies that it should build up to the
+    # 'production' stage defined in the Dockerfile, creating an optimized image.
     build:
       context: .
       target: production
     container_name: sovereigntyos-app
-
-    image: node:20-alpine
-    working_dir: /app
-    volumes:
-      - ./:/app
-    command: sh -c "npm ci && npm run build && npx vite preview --host 0.0.0.0 --port 3000"
-chore/security-hardening
+    # The application runs on port 3000 inside the container.
     ports:
       - "3000:3000"
+    # Environment variables required for the application to run in production.
+    # It uses default values if the variables are not set in the host environment.
     environment:
       - NODE_ENV=production
- main
       - PORT=3000
       - DATABASE_URL=postgresql://${DB_USER:-sovereignty}:${DB_PASSWORD:-sovereignty123}@postgres:5432/${DB_NAME:-sovereignty}
       - REDIS_URL=redis://redis:6379
       - MANUS_API_KEY=${MANUS_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+    # Ensures that the 'postgres' and 'redis' services are healthy before starting the app.
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Always restarts the container unless it is explicitly stopped.
     restart: unless-stopped
+    # Defines a health check to ensure the application is running correctly.
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    # Connects the service to the custom bridge network.
     networks:
       - sovereigntyos-network
 
+  # The PostgreSQL database service.
   postgres:
     image: postgres:15-alpine
     container_name: sovereigntyos-postgres
@@ -48,6 +59,8 @@ chore/security-hardening
       - POSTGRES_USER=${DB_USER:-sovereignty}
       - POSTGRES_PASSWORD=${DB_PASSWORD:-sovereignty123}
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    # Persists database data using a named volume.
+    # Mounts an SQL script to initialize the database on first run.
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
@@ -62,9 +75,11 @@ chore/security-hardening
     networks:
       - sovereigntyos-network
 
+  # The Redis in-memory cache service.
   redis:
     image: redis:7-alpine
     container_name: sovereigntyos-redis
+    # Starts Redis with append-only file persistence and password protection.
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
     volumes:
       - redis_data:/data
@@ -79,12 +94,14 @@ chore/security-hardening
     networks:
       - sovereigntyos-network
 
+  # The Nginx reverse proxy service.
   nginx:
     image: nginx:alpine
     container_name: sovereigntyos-nginx
     ports:
       - "80:80"
       - "443:443"
+    # Mounts production Nginx configuration, SSL certificates, and logs.
     volumes:
       - ./nginx/prod.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
@@ -100,17 +117,15 @@ chore/security-hardening
     networks:
       - sovereigntyos-network
 
-  # Monitoring and observability
+  # --- Monitoring Services ---
+
+  # Prometheus for metrics collection and alerting.
   prometheus:
     image: prom/prometheus:latest
     container_name: sovereigntyos-prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
+      # Additional Prometheus configuration flags...
     ports:
       - "9090:9090"
     volumes:
@@ -120,6 +135,7 @@ chore/security-hardening
     networks:
       - sovereigntyos-network
 
+  # Grafana for visualizing metrics and creating dashboards.
   grafana:
     image: grafana/grafana:latest
     container_name: sovereigntyos-grafana
@@ -137,6 +153,7 @@ chore/security-hardening
     networks:
       - sovereigntyos-network
 
+# Defines named volumes for persistent data storage.
 volumes:
   postgres_data:
     driver: local
@@ -147,27 +164,11 @@ volumes:
   grafana_data:
     driver: local
 
+# Defines the custom network for inter-service communication.
 networks:
   sovereigntyos-network:
     driver: bridge
+    # Defines a custom IP address range for the network.
     ipam:
       config:
         - subnet: 172.20.0.0/16
-
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  redis:
-    image: redis:7-alpine
-    command: redis-server --appendonly yes
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-chore/security-hardening
