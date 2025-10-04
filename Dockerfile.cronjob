@@ -1,0 +1,54 @@
+# Multi-stage build for SovereigntyOS CronJob - Production Hardened
+# Build stage
+FROM node:20-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies with clean install for reproducible builds
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Copy application source
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Production stage - Minimal runtime image
+FROM node:20-alpine AS production
+
+# Create non-root user and group
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Set working directory
+WORKDIR /app
+
+# Copy built artifacts from builder stage
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/package*.json ./
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/data /app/logs && \
+    chown -R appuser:appgroup /app
+
+# Set environment variables
+ENV NODE_ENV=production \
+    PORT=3000
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Expose port (informational)
+EXPOSE 3000
+
+# Run the CronJob script
+CMD ["node", "dist/scout-monetization.js"]
