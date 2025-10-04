@@ -1,5 +1,16 @@
+/**
+ * @file This file contains constant data used throughout the application,
+ * serving as a centralized source for initial agent data and available enhancements.
+ * This approach makes it easy to manage and modify default configurations without altering component logic.
+ */
+
 import { type Agent, type Enhancement } from './types';
 
+/**
+ * A predefined list of enhancements available for agents to unlock.
+ * Each enhancement has a unique ID, name, description, cost, and a specific effect.
+ * @type {Enhancement[]}
+ */
 export const ENHANCEMENTS_DATA: Enhancement[] = [
   {
     id: 'enhance-001',
@@ -38,6 +49,12 @@ export const ENHANCEMENTS_DATA: Enhancement[] = [
   },
 ];
 
+/**
+ * A predefined list of initial AI agents available in the system.
+ * Each agent has a unique profile, including their name, specialization, skills, and avatar.
+ * This data serves as the starting point for the user's roster of agents.
+ * @type {Agent[]}
+ */
 export const AGENTS_DATA: Agent[] = [
   {
     id: 'agent-001',
