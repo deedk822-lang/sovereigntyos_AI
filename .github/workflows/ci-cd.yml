@@ -123,7 +123,7 @@ jobs:
         cat deployment/deploy-commands.md
     
     - name: Upload deployment artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: deployment-manifests
         path: deployment/
