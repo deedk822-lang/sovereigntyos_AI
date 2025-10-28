@@ -1,3 +1,9 @@
+/**
+ * @file This file contains the main root component of the SovereigntyOS AI Lab application.
+ * It orchestrates the overall application state, including agent data, training sessions,
+ * and user interactions. It brings together the main UI components like the sidebar and dashboard.
+ */
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { AgentSidebar } from './components/AgentSidebar';
 import { TrainingDashboard } from './components/TrainingDashboard';
@@ -13,6 +19,11 @@ import { AGENTS_DATA, ENHANCEMENTS_DATA } from './constants';
 import { runTrainingSession } from './services/geminiService';
 import { loadAgents, saveAgents, loadHistory, saveHistory } from './services/storageService';
 
+/**
+ * The main application component. It manages the state for agents, training,
+ * history, and enhancements, and passes data and handlers down to child components.
+ * @returns {React.ReactElement} The rendered application UI.
+ */
 export default function App() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
@@ -21,7 +32,10 @@ export default function App() {
   const [agentHistory, setAgentHistory] = useState<TrainingSessionRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize agents from storage or constants
+  /**
+   * Effect hook to initialize agents on component mount.
+   * It attempts to load agents from local storage, otherwise falls back to the default data.
+   */
   useEffect(() => {
     const initialAgents = loadAgents();
     if (initialAgents && initialAgents.length > 0) {
@@ -34,13 +48,20 @@ export default function App() {
     }
   }, []);
 
-  // Load history when agent changes
+  /**
+   * Effect hook to load the training history for the currently selected agent.
+   * This runs whenever the selected agent changes.
+   */
   useEffect(() => {
     if (selectedAgent) {
       setAgentHistory(loadHistory(selectedAgent.id));
     }
   }, [selectedAgent]);
 
+  /**
+   * Handles the selection of an agent from the sidebar.
+   * @param {Agent} agent - The agent that was selected.
+   */
   const handleSelectAgent = useCallback((agent: Agent) => {
     setSelectedAgent(agent);
     setTrainingStatus(TrainingStatus.SETUP);
@@ -48,6 +69,13 @@ export default function App() {
     setError(null);
   }, []);
 
+  /**
+   * Initiates a training session for the selected agent.
+   * It calls the training service, processes the results, updates the agent's skills
+   * and breakthrough points, and saves the new state and history record.
+   * @param {string} scenario - The training scenario description.
+   * @param {string} focus - The focus area for the training.
+   */
   const handleStartTraining = useCallback(
     async (scenario: string, focus: string) => {
       if (!selectedAgent) return;
@@ -60,7 +88,6 @@ export default function App() {
         setTrainingResult(result);
         setTrainingStatus(TrainingStatus.RESULTS);
 
-        // Points: new skills learned where before=0 and after>0
         const newSkillsCount = result.metrics.filter((m) => m.before === 0 && m.after > 0).length;
         const pointsEarned = newSkillsCount;
 
@@ -70,25 +97,15 @@ export default function App() {
           result.metrics.forEach((metric) => {
             newSkills[metric.skill] = metric.after;
           });
-          const updated: Agent = {
-            ...a,
-            skills: newSkills,
-            breakthroughPoints: a.breakthroughPoints + pointsEarned,
-          };
-          return updated;
+          return { ...a, skills: newSkills, breakthroughPoints: a.breakthroughPoints + pointsEarned };
         });
 
-        const updatedSelected = updatedAgents.find((a) => a.id === selectedAgent.id) ?? selectedAgent;
+        setSelectedAgent(updatedAgents.find((a) => a.id === selectedAgent.id) ?? null);
         setAgents(updatedAgents);
-        setSelectedAgent(updatedSelected);
         saveAgents(updatedAgents);
 
         const newRecord: TrainingSessionRecord = {
-          id: new Date().toISOString(),
-          date: new Date().toLocaleString(),
-          scenario,
-          focus,
-          result,
+          id: new Date().toISOString(), date: new Date().toLocaleString(), scenario, focus, result,
         };
         const updatedHistory = [newRecord, ...agentHistory];
         setAgentHistory(updatedHistory);
@@ -102,6 +119,12 @@ export default function App() {
     [selectedAgent, agents, agentHistory]
   );
 
+  /**
+   * Handles unlocking an enhancement for the selected agent.
+   * It verifies if the agent has enough points, then applies the enhancement effect
+   * and updates the agent's state.
+   * @param {string} enhancementId - The ID of the enhancement to unlock.
+   */
   const handleUnlockEnhancement = useCallback(
     (enhancementId: string) => {
       const enhancement: Enhancement | undefined = ENHANCEMENTS_DATA.find((e) => e.id === enhancementId);
@@ -115,28 +138,31 @@ export default function App() {
           unlockedEnhancements: [...a.unlockedEnhancements, enhancementId],
           skills: { ...a.skills },
         };
-        // Apply immediate effects
         if (enhancement.effect.type === 'SKILL_BOOST' && enhancement.effect.skill) {
-          updated.skills[enhancement.effect.skill] =
-            (updated.skills[enhancement.effect.skill] || 0) + enhancement.effect.value;
+          updated.skills[enhancement.effect.skill] = (updated.skills[enhancement.effect.skill] || 0) + enhancement.effect.value;
         }
         return updated;
       });
 
-      const updatedSelected = updatedAgents.find((a) => a.id === selectedAgent.id) ?? selectedAgent;
+      setSelectedAgent(updatedAgents.find((a) => a.id === selectedAgent.id) ?? null);
       setAgents(updatedAgents);
-      setSelectedAgent(updatedSelected);
       saveAgents(updatedAgents);
     },
     [selectedAgent, agents]
   );
 
+  /**
+   * Resets the current training view to the setup state.
+   */
   const handleReset = useCallback(() => {
     setTrainingStatus(TrainingStatus.SETUP);
     setTrainingResult(null);
     setError(null);
   }, []);
 
+  /**
+   * Exports all agent and history data to a JSON backup file.
+   */
   const handleExportData = useCallback(() => {
     try {
       const allHistories: { [agentId: string]: TrainingSessionRecord[] } = {};
@@ -149,8 +175,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      a.download = `ai_lab_backup_${timestamp}.json`;
+      a.download = `ai_lab_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -161,26 +186,26 @@ export default function App() {
     }
   }, [agents]);
 
+  /**
+   * Imports agent and history data from a JSON backup file.
+   * @param {File} file - The JSON file to import.
+   */
   const handleImportData = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const result = event.target?.result;
-        if (typeof result !== 'string') {
-          throw new Error('Failed to read file content.');
-        }
+        if (typeof result !== 'string') throw new Error('Failed to read file content.');
+
         const data = JSON.parse(result);
-        if (!data.agents || !data.histories || !Array.isArray(data.agents)) {
-          throw new Error("Invalid backup file format. Missing 'agents' or 'histories' keys.");
-        }
-        const importedAgents: Agent[] = data.agents;
-        setAgents(importedAgents);
-        saveAgents(importedAgents);
-        const importedHistories: { [agentId: string]: TrainingSessionRecord[] } = data.histories;
-        Object.keys(importedHistories).forEach((agentId) => {
-          saveHistory(agentId, importedHistories[agentId]);
+        if (!data.agents || !data.histories) throw new Error("Invalid backup file format.");
+
+        setAgents(data.agents);
+        saveAgents(data.agents);
+        Object.keys(data.histories).forEach((agentId) => {
+          saveHistory(agentId, data.histories[agentId]);
         });
-        setSelectedAgent(importedAgents[0] || null);
+        setSelectedAgent(data.agents[0] || null);
         setTrainingStatus(TrainingStatus.SETUP);
         setError(null);
       } catch (e) {
@@ -188,9 +213,7 @@ export default function App() {
         setError(e instanceof Error ? e.message : 'An unknown error occurred during import.');
       }
     };
-    reader.onerror = () => {
-      setError('Failed to read file.');
-    };
+    reader.onerror = () => setError('Failed to read file.');
     reader.readAsText(file);
   }, []);
 
@@ -218,4 +241,3 @@ export default function App() {
     </div>
   );
 }
-

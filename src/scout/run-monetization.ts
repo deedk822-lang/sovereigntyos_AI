@@ -1,36 +1,51 @@
 #!/usr/bin/env node
 /**
- * Scout Monetization CronJob Entry Point
- * Runs every 2 weeks (1st and 15th at 2AM SAST)
- * Collects revenue opportunities from monetizable platforms
+ * @file This script serves as the entry point for the Scout Monetization CronJob.
+ * It is designed to be executed on a schedule (e.g., every 2 weeks on the 1st and 15th)
+ * to automatically collect and analyze revenue opportunities from various online platforms.
+ * The script orchestrates the ScoutMonetizationAgent and uses a reasoning agent (DeepSeek)
+ * to process the findings into an actionable plan.
  */
 
-import { ScoutMonetizationAgent, runMonetizationCollection } from '../agents/scout-monetization';
+import { ScoutMonetizationAgent } from '../agents/scout-monetization';
 import { DeepSeekAgent } from '../cognitive-architecture/deepseek-agent';
 
-// Environment validation
+// --- Environment Validation ---
 const requiredEnvVars = [
   'COLLECTION_MODE',
   'FOCUS_AREAS',
   'MAX_COLLECTION_TIME'
 ];
-
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
 if (missingVars.length > 0) {
-  console.error('❌ Missing required environment variables:', missingVars);
+  console.error('❌ Missing required environment variables:', missingVars.join(', '));
   process.exit(1);
 }
 
-// Configuration
+// --- Configuration ---
+/**
+ * Configuration object for the monetization collection script.
+ * Populated from environment variables with sensible defaults.
+ */
 const config = {
+  /** The mode of collection, e.g., 'monetization-biweekly'. */
   collectionMode: process.env.COLLECTION_MODE || 'monetization-biweekly',
+  /** Comma-separated list of topics to focus on. */
   focusAreas: (process.env.FOCUS_AREAS || 'ai,crypto,sovereignty').split(','),
+  /** The maximum total runtime for the collection process, in milliseconds. */
   maxCollectionTime: parseInt(process.env.MAX_COLLECTION_TIME || '50') * 60 * 1000,
+  /** The base URL for the DashScope API (used by DeepSeek agent). */
   dashscopeBaseUrl: process.env.DASHSCOPE_BASE_URL || 'https://dashscope-intl.aliyuncs.com/api/v1',
+  /** The API key for the DashScope service. */
   dashscopeApiKey: process.env.DASHSCOPE_API_KEY
 };
 
-async function main() {
+/**
+ * The main execution function for the cron job.
+ * It orchestrates the entire process from initialization to completion or failure.
+ * @returns {Promise<void>} A promise that resolves when the process is complete or exits.
+ */
+async function main(): Promise<void> {
   console.log('🚀 Starting Scout Monetization Collection');
   console.log(`📅 Mode: ${config.collectionMode}`);
   console.log(`🎯 Focus areas: ${config.focusAreas.join(', ')}`);
@@ -39,117 +54,116 @@ async function main() {
   const startTime = Date.now();
   
   try {
-    // Initialize Scout agent
     const scout = new ScoutMonetizationAgent();
     
-    // Set timeout for entire collection
+    // Set a global timeout for the entire collection process
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Collection timeout')), config.maxCollectionTime)
+      setTimeout(() => reject(new Error('Global collection timeout reached')), config.maxCollectionTime)
     );
     
-    // Race between collection and timeout
+    // Race the collection process against the global timeout
     const collectionPromise = scout.executeBiweeklyCollection();
-    
     const result = await Promise.race([collectionPromise, timeoutPromise]);
     
-    // Process results with reasoning agents
+    // Further process the raw results with a reasoning agent for deeper insights
     console.log('🧠 Processing results with reasoning agents...');
     await processWithReasoningAgents(result);
     
     const duration = (Date.now() - startTime) / 1000;
-    console.log(`✅ Collection completed successfully in ${duration}s`);
-    console.log(`💰 Total revenue potential: $${result.estimatedTotalRevenue}/month`);
+    console.log(`✅ Collection completed successfully in ${duration.toFixed(2)}s`);
+    console.log(`💰 Total estimated revenue potential: $${result.estimatedTotalRevenue.toFixed(2)}/month`);
     
     process.exit(0);
     
   } catch (error) {
     const duration = (Date.now() - startTime) / 1000;
-    console.error(`💥 Collection failed after ${duration}s:`, error.message);
+    console.error(`💥 Collection failed after ${duration.toFixed(2)}s:`, (error as Error).message);
     
-    // Send failure notification if configured
-    await notifyFailure(error);
+    await notifyFailure(error as Error);
     
     process.exit(1);
   }
 }
 
+/**
+ * Uses a cost-efficient reasoning agent (DeepSeek) to analyze the collected opportunities
+ * and generate a structured, actionable plan.
+ * @param {any} scoutResults - The raw results from the ScoutMonetizationAgent.
+ * @returns {Promise<void>}
+ */
 async function processWithReasoningAgents(scoutResults: any): Promise<void> {
   try {
-    // Initialize cost-efficient DeepSeek for primary analysis
     const deepseek = new DeepSeekAgent(config.dashscopeApiKey);
-    
-    const analysis = await deepseek.processTask({
-      id: 'monetization-analysis',
+    const analysisTask = {
+      id: `monetization-analysis-${Date.now()}`,
       type: 'reasoning',
-      content: `Analyze monetization opportunities and create action plan:
-      
-      Scout Results: ${JSON.stringify(scoutResults.topOpportunities, null, 2)}
-      
-      Focus on:
-      1. Rank opportunities by ROI and implementation speed
-      2. Identify synergies across platforms
-      3. Create 30-day quick-win action plan
-      4. Estimate realistic revenue timeline
-      
-      Return structured analysis with specific next steps.`,
-      requirements: {
-        maxTokens: 1500,
-        temperature: 0.2,
-        complexity: 1
-      }
-    });
+      content: `Analyze these monetization opportunities and create a prioritized action plan: ${JSON.stringify(scoutResults.topOpportunities, null, 2)}`,
+      requirements: { maxTokens: 1500, temperature: 0.2, complexity: 1.2 }
+    };
+
+    const analysis = await deepseek.processTask(analysisTask);
     
     console.log('🎯 Reasoning Agent Analysis:');
     console.log(analysis.result.content);
     
-    // Store enhanced results
+    // Attach the analysis to the main results object
     scoutResults.reasoningAnalysis = analysis.result.content;
     scoutResults.processingCost = analysis.costEstimate;
     
   } catch (error) {
-    console.warn('⚠️ Reasoning agent processing failed:', error.message);
-    // Non-fatal; scout results are still valid
+    console.warn('⚠️ Reasoning agent processing failed:', (error as Error).message);
+    // This is treated as non-fatal; the raw scout results are still valuable.
   }
 }
 
+/**
+ * Placeholder function for sending failure notifications.
+ * In a production environment, this would integrate with services like Slack, Discord, or email.
+ * @param {Error} error - The error that caused the failure.
+ * @returns {Promise<void>}
+ */
 async function notifyFailure(error: Error): Promise<void> {
-  // Optional: send webhook notification or create GitHub issue
-  console.log('📧 Notification: Scout collection failed');
-  console.log(`Error: ${error.message}`);
-  
-  // Could integrate with:
-  // - Discord webhook
-  // - Slack notification
-  // - Email alert
-  // - GitHub issue creation
+  console.log('📧 Notification: Scout collection process failed.');
+  console.log(`Error details: ${error.message}`);
+  // Example integration:
+  // await axios.post(process.env.SLACK_WEBHOOK_URL, { text: `Scout Monetization Failed: ${error.message}` });
 }
 
-// Handle process signals gracefully
-process.on('SIGINT', () => {
-  console.log('🛑 Received SIGINT, shutting down gracefully...');
-  process.exit(0);
-});
+// --- Process Lifecycle Management ---
 
-process.on('SIGTERM', () => {
-  console.log('🛑 Received SIGTERM, shutting down gracefully...');
-  process.exit(0);
-});
+/**
+ * Gracefully handles process interruption signals.
+ */
+function handleShutdown(signal: string) {
+    console.log(`🛑 Received ${signal}, shutting down gracefully...`);
+    // Add any cleanup logic here
+    process.exit(0);
+}
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 
-// Unhandled errors
+/**
+ * Catches unhandled promise rejections to ensure the process exits cleanly with an error.
+ */
 process.on('unhandledRejection', (reason, promise) => {
   console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
   process.exit(1);
 });
 
+/**
+ * Catches uncaught exceptions to ensure the process exits cleanly with an error.
+ */
 process.on('uncaughtException', (error) => {
   console.error('🚨 Uncaught Exception:', error);
   process.exit(1);
 });
 
-// Run main function
+/**
+ * Ensures the main function is called only when the script is executed directly.
+ */
 if (require.main === module) {
   main().catch(error => {
-    console.error('💥 Main execution failed:', error);
+    console.error('💥 A critical error occurred in the main execution block:', error);
     process.exit(1);
   });
 }

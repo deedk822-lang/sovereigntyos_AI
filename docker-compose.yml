@@ -1,23 +1,53 @@
+#
+# Docker Compose configuration for local development of SovereigntyOS.
+#
+# This file defines the services, networks, and volumes needed to run the
+# application in a local development environment. It simplifies the process
+# of starting up the entire stack with a single command: `docker-compose up`.
+#
+# Version '3.8' is specified for compatibility with modern Docker Compose features.
 version: '3.8'
 
+# Defines the services (containers) that make up the application.
 services:
+  # The main service for the SovereigntyOS frontend.
   sovereigntyos:
+    # Specifies the build context. The `.` indicates that Docker should
+    # use the Dockerfile in the current directory to build the image.
     build: .
+    # Maps port 3000 on the host machine to port 80 inside the container.
+    # Port 80 is the default port exposed by the Nginx server in the Docker image.
     ports:
       - "3000:80"
+    # Sets environment variables inside the container.
+    # NODE_ENV=production ensures that the application runs in production mode,
+    # which is generally more performant.
     environment:
       - NODE_ENV=production
+    # Defines the restart policy for the container.
+    # `unless-stopped` ensures that the container will restart automatically
+    # unless it has been explicitly stopped.
     restart: unless-stopped
     
-  # Optional: Add backend when ready
+  # This section is a placeholder for a potential backend service.
+  # It is commented out but can be enabled when a backend API is developed.
+  #
   # backend:
+  #   # Specifies that the image for this service should be built from the './api' directory.
   #   build: ./api
+  #   # Maps port 8000 on the host to port 8000 in the container.
   #   ports:
   #     - "8000:8000"
+  #   # Passes the GEMINI_API_KEY environment variable from the host to the container.
+  #   # This is necessary for the backend to communicate with the Gemini API.
   #   environment:
   #     - GEMINI_API_KEY=${GEMINI_API_KEY}
+  #   # Sets the same restart policy as the frontend service.
   #   restart: unless-stopped
 
+# Defines the networks for the services.
 networks:
+  # Defines a default network for the services to communicate with each other.
   default:
+    # Gives the network a custom name for easier identification.
     name: sovereigntyos-network

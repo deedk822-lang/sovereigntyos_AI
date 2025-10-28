@@ -1,10 +1,18 @@
 /**
- * Advanced Reasoning Engine for SovereigntyOS AI
- * Implements Chain-of-Thought, Tree-of-Thoughts, and Multi-Agent Reasoning
+ * @file Implements an Advanced Reasoning Engine for the SovereigntyOS AI.
+ * This engine uses sophisticated reasoning methodologies like Tree-of-Thoughts (ToT)
+ * and leverages a multi-agent Cognitive Orchestrator to explore, evaluate, and
+ * synthesize complex lines of reasoning, incorporating critical thinking frameworks.
  */
 
 import { CognitiveOrchestrator } from './CognitiveOrchestrator';
 
+// --- Interfaces ---
+
+/**
+ * Represents a single node in the Tree-of-Thoughts. Each node is a discrete
+ * piece of reasoning or a potential step in a solution path.
+ */
 interface ThoughtNode {
   id: string;
   content: string;
@@ -18,6 +26,10 @@ interface ThoughtNode {
   timestamp: Date;
 }
 
+/**
+ * Represents a complete path of reasoning from a root thought to a leaf node,
+ * along with its evaluation scores.
+ */
 interface ReasoningPath {
   nodes: ThoughtNode[];
   score: number;
@@ -26,6 +38,10 @@ interface ReasoningPath {
   evidence_strength: number;
 }
 
+/**
+ * Defines the components of a critical thinking framework to be applied
+ * during the validation of a reasoning path.
+ */
 interface CriticalThinkingFramework {
   analyse_assumptions: boolean;
   evaluate_evidence: boolean;
@@ -35,28 +51,35 @@ interface CriticalThinkingFramework {
   identify_biases: boolean;
 }
 
+/**
+ * A sophisticated engine for performing deep, structured reasoning.
+ * It constructs and evaluates a "thought tree" to find the most robust and
+ * well-supported conclusion for a given query.
+ */
 export class ReasoningEngine {
   private thoughtTree: Map<string, ThoughtNode> = new Map();
   private reasoningPaths: ReasoningPath[] = [];
   private cognitiveOrchestrator: CognitiveOrchestrator;
   private criticalThinkingEnabled: boolean = true;
 
+  /**
+   * @param {CognitiveOrchestrator} orchestrator - An instance of the CognitiveOrchestrator to leverage its multi-agent capabilities.
+   */
   constructor(orchestrator: CognitiveOrchestrator) {
     this.cognitiveOrchestrator = orchestrator;
   }
 
   /**
-   * Advanced reasoning with Tree-of-Thoughts methodology
+   * Performs advanced reasoning on a query using the Tree-of-Thoughts (ToT) methodology.
+   * It generates multiple lines of thought, expands them, evaluates them, and applies critical thinking to form a conclusion.
+   * @param {string} query - The initial question or problem to be reasoned about.
+   * @param {object} [context={}] - Contextual information to guide the reasoning process.
+   * @returns {Promise<object>} A promise that resolves to an object containing the final conclusion,
+   * the reasoning path taken, confidence score, and critical analysis artifacts.
    */
   async performAdvancedReasoning(
     query: string,
-    context: {
-      domain?: string;
-      complexity?: 'simple' | 'medium' | 'complex' | 'expert';
-      requires_creativity?: boolean;
-      requires_analysis?: boolean;
-      requires_synthesis?: boolean;
-    } = {}
+    context: { domain?: string; complexity?: 'simple' | 'medium' | 'complex' | 'expert'; } = {}
   ): Promise<{
     conclusion: string;
     reasoning_path: ThoughtNode[];
@@ -67,451 +90,213 @@ export class ReasoningEngine {
     potential_biases: string[];
   }> {
     console.log('🧠 Starting advanced reasoning for:', query);
+    this.clearReasoningTree();
 
-    // Phase 1: Generate initial thought branches
+    // The core phases of Tree-of-Thoughts reasoning
     const initialThoughts = await this.generateInitialThoughts(query, context);
-    
-    // Phase 2: Expand thought tree with multiple reasoning paths
     const expandedTree = await this.expandReasoningTree(initialThoughts, context);
-    
-    // Phase 3: Critical evaluation of all paths
-    const evaluatedPaths = await this.evaluateReasoningPaths(expandedTree, context);
-    
-    // Phase 4: Synthesize best reasoning path
+    const evaluatedPaths = await this.evaluateReasoningPaths(expandedTree);
     const bestPath = this.selectOptimalReasoningPath(evaluatedPaths);
     
-    // Phase 5: Critical thinking validation
-    const validatedConclusion = await this.applyCriticalThinking(bestPath, query, context);
-    
-    return validatedConclusion;
+    return await this.applyCriticalThinking(bestPath, query);
   }
 
   /**
-   * Generate multiple initial thought branches using different AI agents
+   * Generates multiple initial thought branches from different perspectives using the Cognitive Orchestrator.
+   * @private
    */
-  private async generateInitialThoughts(
-    query: string,
-    context: any
-  ): Promise<ThoughtNode[]> {
-    const perspectives = [
-      'analytical_perspective',
-      'creative_perspective',
-      'skeptical_perspective',
-      'practical_perspective',
-      'ethical_perspective'
-    ];
-
-    const initialThoughts: ThoughtNode[] = [];
-
-    for (const perspective of perspectives) {
+  private async generateInitialThoughts(query: string, context: any): Promise<ThoughtNode[]> {
+    const perspectives = ['analytical_perspective', 'creative_perspective', 'skeptical_perspective'];
+    const thoughtPromises = perspectives.map(async (perspective) => {
       const thoughtPrompt = this.constructPerspectivePrompt(query, perspective, context);
-      
-      const response = await this.cognitiveOrchestrator.processComplexQuery(
-        thoughtPrompt,
-        {
-          complexity: 'medium',
-          domain: context.domain || 'general',
-          metadata: { perspective, reasoning_phase: 'initial_thoughts' }
-        }
-      );
-
+      const response = await this.cognitiveOrchestrator.processComplexQuery(thoughtPrompt, { complexity: 'medium', domain: context.domain || 'general' });
       const thoughtNode: ThoughtNode = {
-        id: this.generateNodeId(),
-        content: response.response,
-        confidence: response.confidence,
-        depth: 0,
-        parentId: null,
-        childIds: [],
-        reasoning: `Generated from ${perspective}`,
-        evidence: this.extractEvidence(response.response),
-        contradictions: [],
-        timestamp: new Date()
+        id: this.generateNodeId(), content: response.response, confidence: response.confidence,
+        depth: 0, parentId: null, childIds: [], reasoning: `Generated from ${perspective}`,
+        evidence: this.extractEvidence(response.response), contradictions: [], timestamp: new Date()
       };
-
       this.thoughtTree.set(thoughtNode.id, thoughtNode);
-      initialThoughts.push(thoughtNode);
-    }
-
-    return initialThoughts;
+      return thoughtNode;
+    });
+    return Promise.all(thoughtPromises);
   }
 
   /**
-   * Expand reasoning tree by generating child thoughts for each branch
+   * Expands the reasoning tree by generating child thoughts for promising nodes up to a max depth.
+   * @private
    */
-  private async expandReasoningTree(
-    initialThoughts: ThoughtNode[],
-    context: any,
-    maxDepth: number = 3
-  ): Promise<ThoughtNode[]> {
+  private async expandReasoningTree(initialThoughts: ThoughtNode[], context: any, maxDepth: number = 3): Promise<ThoughtNode[]> {
     let currentLevel = initialThoughts;
     let allNodes = [...initialThoughts];
 
-    for (let depth = 1; depth <= maxDepth; depth++) {
-      const nextLevel: ThoughtNode[] = [];
+    for (let depth = 1; depth < maxDepth; depth++) {
+      const nextLevelPromises = currentLevel
+        .filter(node => node.confidence > 0.6) // Pruning condition
+        .flatMap(parentNode => this.generateChildThoughts(parentNode, context, depth));
 
-      for (const parentNode of currentLevel) {
-        // Generate 2-3 child thoughts for each promising parent
-        if (parentNode.confidence > 0.6) {
-          const childThoughts = await this.generateChildThoughts(parentNode, context, depth);
-          
-          for (const childThought of childThoughts) {
-            parentNode.childIds.push(childThought.id);
-            this.thoughtTree.set(childThought.id, childThought);
-            nextLevel.push(childThought);
-            allNodes.push(childThought);
-          }
-        }
-      }
-
+      const nextLevel = await Promise.all(nextLevelPromises);
+      currentLevel.forEach(parent => parent.childIds.push(...nextLevel.filter(child => child.parentId === parent.id).map(c => c.id)));
+      allNodes.push(...nextLevel);
       currentLevel = nextLevel;
       if (currentLevel.length === 0) break;
     }
-
     return allNodes;
   }
 
   /**
-   * Generate child thoughts by refining and expanding parent thoughts
+   * Generates child thoughts for a parent node using different expansion strategies.
+   * @private
    */
-  private async generateChildThoughts(
-    parentNode: ThoughtNode,
-    context: any,
-    depth: number
-  ): Promise<ThoughtNode[]> {
-    const expansionStrategies = [
-      'deeper_analysis',
-      'alternative_approach',
-      'evidence_examination'
-    ];
-
-    const childThoughts: ThoughtNode[] = [];
-
-    for (const strategy of expansionStrategies.slice(0, 2)) { // Limit to 2 children per parent
+  private async generateChildThoughts(parentNode: ThoughtNode, context: any, depth: number): Promise<ThoughtNode[]> {
+    const strategies = ['deeper_analysis', 'alternative_approach'];
+    const childPromises = strategies.map(async (strategy) => {
       const expansionPrompt = this.constructExpansionPrompt(parentNode, strategy, context);
-      
-      const response = await this.cognitiveOrchestrator.processComplexQuery(
-        expansionPrompt,
-        {
-          complexity: depth > 2 ? 'complex' : 'medium',
-          domain: context.domain || 'general',
-          metadata: { expansion_strategy: strategy, parent_id: parentNode.id }
-        }
-      );
-
+      const response = await this.cognitiveOrchestrator.processComplexQuery(expansionPrompt, { complexity: depth > 1 ? 'complex' : 'medium' });
       const childNode: ThoughtNode = {
-        id: this.generateNodeId(),
-        content: response.response,
-        confidence: response.confidence * (1 - depth * 0.1), // Decrease confidence with depth
-        depth,
-        parentId: parentNode.id,
-        childIds: [],
-        reasoning: `Expanded from parent using ${strategy}`,
-        evidence: this.extractEvidence(response.response),
-        contradictions: await this.identifyContradictions(response.response, parentNode.content),
-        timestamp: new Date()
+        id: this.generateNodeId(), content: response.response, confidence: response.confidence * (1 - depth * 0.1),
+        depth, parentId: parentNode.id, childIds: [], reasoning: `Expanded using ${strategy}`,
+        evidence: this.extractEvidence(response.response), contradictions: [], timestamp: new Date()
       };
-
-      childThoughts.push(childNode);
-    }
-
-    return childThoughts;
+      this.thoughtTree.set(childNode.id, childNode);
+      return childNode;
+    });
+    return Promise.all(childPromises);
   }
 
   /**
-   * Evaluate all reasoning paths and score them
+   * Evaluates all complete reasoning paths from the root to the leaves of the thought tree.
+   * @private
    */
-  private async evaluateReasoningPaths(
-    allNodes: ThoughtNode[],
-    context: any
-  ): Promise<ReasoningPath[]> {
+  private async evaluateReasoningPaths(allNodes: ThoughtNode[]): Promise<ReasoningPath[]> {
     const paths = this.extractReasoningPaths(allNodes);
-    const evaluatedPaths: ReasoningPath[] = [];
-
-    for (const path of paths) {
-      const evaluation = await this.evaluatePath(path, context);
-      evaluatedPaths.push({
-        nodes: path,
-        score: evaluation.score,
-        coherence: evaluation.coherence,
-        completeness: evaluation.completeness,
-        evidence_strength: evaluation.evidence_strength
-      });
-    }
-
+    const evaluationPromises = paths.map(async (path) => {
+      const evaluation = await this.evaluatePath(path);
+      return { ...evaluation, nodes: path };
+    });
+    const evaluatedPaths = await Promise.all(evaluationPromises);
     return evaluatedPaths.sort((a, b) => b.score - a.score);
   }
 
   /**
-   * Extract all possible reasoning paths from root to leaf nodes
+   * Extracts all reasoning paths from the thought tree.
+   * @private
    */
   private extractReasoningPaths(allNodes: ThoughtNode[]): ThoughtNode[][] {
     const rootNodes = allNodes.filter(node => node.parentId === null);
     const paths: ThoughtNode[][] = [];
-
-    for (const root of rootNodes) {
-      this.findPathsFromNode(root, [root], paths);
-    }
-
+    rootNodes.forEach(root => this.findPathsFromNode(root, [root], paths));
     return paths;
   }
 
   /**
-   * Recursively find all paths from a given node to leaf nodes
+   * Recursively finds all paths starting from a given node.
+   * @private
    */
-  private findPathsFromNode(
-    node: ThoughtNode,
-    currentPath: ThoughtNode[],
-    allPaths: ThoughtNode[][]
-  ): void {
+  private findPathsFromNode(node: ThoughtNode, currentPath: ThoughtNode[], allPaths: ThoughtNode[][]): void {
     if (node.childIds.length === 0) {
-      // Leaf node - add current path
       allPaths.push([...currentPath]);
       return;
     }
-
     for (const childId of node.childIds) {
       const childNode = this.thoughtTree.get(childId);
-      if (childNode) {
-        this.findPathsFromNode(childNode, [...currentPath, childNode], allPaths);
-      }
+      if (childNode) this.findPathsFromNode(childNode, [...currentPath, childNode], allPaths);
     }
   }
 
   /**
-   * Evaluate a reasoning path for quality metrics
+   * Evaluates a single reasoning path based on coherence, completeness, and evidence.
+   * @private
    */
-  private async evaluatePath(
-    path: ThoughtNode[],
-    context: any
-  ): Promise<{
-    score: number;
-    coherence: number;
-    completeness: number;
-    evidence_strength: number;
-  }> {
-    // Calculate coherence (logical flow between nodes)
+  private async evaluatePath(path: ThoughtNode[]): Promise<{ score: number; coherence: number; completeness: number; evidence_strength: number; }> {
     const coherence = this.calculateCoherence(path);
-    
-    // Calculate completeness (how well the path addresses the original query)
-    const completeness = this.calculateCompleteness(path, context);
-    
-    // Calculate evidence strength
+    const completeness = this.calculateCompleteness(path);
     const evidence_strength = this.calculateEvidenceStrength(path);
-    
-    // Overall score combining all factors
     const score = (coherence * 0.4) + (completeness * 0.4) + (evidence_strength * 0.2);
-
     return { score, coherence, completeness, evidence_strength };
   }
 
-  private calculateCoherence(path: ThoughtNode[]): number {
-    if (path.length < 2) return 1.0;
-
-    let coherenceSum = 0;
-    for (let i = 1; i < path.length; i++) {
-      // Simple coherence calculation based on confidence and contradiction count
-      const contradictionPenalty = path[i].contradictions.length * 0.1;
-      const nodeCoherence = Math.max(0, path[i].confidence - contradictionPenalty);
-      coherenceSum += nodeCoherence;
-    }
-
-    return coherenceSum / (path.length - 1);
-  }
-
-  private calculateCompleteness(path: ThoughtNode[], context: any): number {
-    // Simple completeness based on path depth and final confidence
-    const finalNode = path[path.length - 1];
-    const depthBonus = Math.min(path.length / 4, 1) * 0.2;
-    return Math.min(finalNode.confidence + depthBonus, 1.0);
-  }
-
-  private calculateEvidenceStrength(path: ThoughtNode[]): number {
-    const totalEvidence = path.reduce((sum, node) => sum + node.evidence.length, 0);
-    return Math.min(totalEvidence / (path.length * 2), 1.0);
-  }
+  /** Calculates the logical coherence of a path. @private */
+  private calculateCoherence(path: ThoughtNode[]): number { return path.length > 1 ? path.reduce((sum, node) => sum + node.confidence, 0) / path.length : 1.0; }
+  /** Calculates how completely a path addresses the query. @private */
+  private calculateCompleteness(path: ThoughtNode[]): number { return path.length > 0 ? path[path.length-1].confidence : 0; }
+  /** Calculates the strength of evidence in a path. @private */
+  private calculateEvidenceStrength(path: ThoughtNode[]): number { return Math.min(path.reduce((sum, node) => sum + node.evidence.length, 0) / path.length, 1.0); }
 
   /**
-   * Select the optimal reasoning path
+   * Selects the best reasoning path based on evaluation scores.
+   * @private
    */
   private selectOptimalReasoningPath(evaluatedPaths: ReasoningPath[]): ReasoningPath {
-    // Return the highest scoring path
     return evaluatedPaths[0] || { nodes: [], score: 0, coherence: 0, completeness: 0, evidence_strength: 0 };
   }
 
   /**
-   * Apply critical thinking framework to validate conclusions
+   * Applies a critical thinking framework to the best path to validate its conclusion and identify underlying assumptions and biases.
+   * @private
    */
-  private async applyCriticalThinking(
-    bestPath: ReasoningPath,
-    originalQuery: string,
-    context: any
-  ): Promise<{
-    conclusion: string;
-    reasoning_path: ThoughtNode[];
-    confidence: number;
-    alternatives: string[];
-    evidence: string[];
-    assumptions: string[];
-    potential_biases: string[];
-  }> {
+  private async applyCriticalThinking(bestPath: ReasoningPath, originalQuery: string): Promise<any> {
+    if (!bestPath || bestPath.nodes.length === 0) {
+        return { conclusion: 'No conclusion reached', reasoning_path: [], confidence: 0, alternatives: [], evidence: [], assumptions: [], potential_biases: [] };
+    }
     const finalNode = bestPath.nodes[bestPath.nodes.length - 1];
-    
-    // Apply critical thinking framework
     const criticalAnalysis = await this.performCriticalAnalysis(bestPath, originalQuery);
-    
     return {
-      conclusion: finalNode?.content || 'No conclusion reached',
+      conclusion: finalNode.content,
       reasoning_path: bestPath.nodes,
       confidence: bestPath.score,
-      alternatives: criticalAnalysis.alternatives,
-      evidence: criticalAnalysis.evidence,
-      assumptions: criticalAnalysis.assumptions,
-      potential_biases: criticalAnalysis.biases
+      ...criticalAnalysis
     };
   }
 
   /**
-   * Perform critical analysis of the reasoning path
+   * Uses the orchestrator to perform a critical analysis of a reasoning path.
+   * @private
    */
-  private async performCriticalAnalysis(
-    path: ReasoningPath,
-    originalQuery: string
-  ): Promise<{
-    alternatives: string[];
-    evidence: string[];
-    assumptions: string[];
-    biases: string[];
-  }> {
-    const allEvidence = path.nodes.reduce((acc, node) => [...acc, ...node.evidence], [] as string[]);
-    
-    // Generate critical analysis using the cognitive orchestrator
-    const criticalPrompt = `
-Perform a critical analysis of this reasoning:
-
-Original Query: ${originalQuery}
-
-Reasoning Path: ${path.nodes.map(n => n.content).join(' -> ')}
-
-Identify:
-1. Key assumptions being made
-2. Alternative perspectives or solutions
-3. Potential cognitive biases
-4. Strength of evidence presented
-
-Provide structured analysis.
-`;
-
-    const analysis = await this.cognitiveOrchestrator.processComplexQuery(
-      criticalPrompt,
-      {
-        complexity: 'complex',
-        domain: 'critical_thinking',
-        metadata: { analysis_type: 'critical_validation' }
-      }
-    );
-
+  private async performCriticalAnalysis(path: ReasoningPath, originalQuery: string): Promise<{ alternatives: string[]; evidence: string[]; assumptions: string[]; biases: string[]; }> {
+    const allEvidence = path.nodes.flatMap(node => node.evidence);
+    const criticalPrompt = `Critically analyze this reasoning for query "${originalQuery}": ${path.nodes.map(n => n.content).join(' -> ')}. Identify assumptions, alternatives, and biases.`;
+    const analysis = await this.cognitiveOrchestrator.processComplexQuery(criticalPrompt, { complexity: 'complex' });
     return {
-      alternatives: this.extractAlternatives(analysis.response),
+      alternatives: this.extractSection(analysis.response, 'Alternatives'),
       evidence: allEvidence,
-      assumptions: this.extractAssumptions(analysis.response),
-      biases: this.extractBiases(analysis.response)
+      assumptions: this.extractSection(analysis.response, 'Assumptions'),
+      biases: this.extractSection(analysis.response, 'Biases')
     };
   }
 
-  // Helper methods
-  private constructPerspectivePrompt(query: string, perspective: string, context: any): string {
-    const perspectiveInstructions = {
-      analytical_perspective: 'Analyze this systematically with data and logic',
-      creative_perspective: 'Approach this with creative and innovative thinking',
-      skeptical_perspective: 'Question assumptions and look for potential flaws',
-      practical_perspective: 'Focus on practical implementation and real-world constraints',
-      ethical_perspective: 'Consider ethical implications and moral dimensions'
-    };
+  // --- Helper Methods ---
+  /** @private */
+  private constructPerspectivePrompt(query: string, perspective: string, context: any): string { return `From a ${perspective}, analyze: "${query}"`; }
+  /** @private */
+  private constructExpansionPrompt(parentNode: ThoughtNode, strategy: string, context: any): string { return `Building on "${parentNode.content}", expand using strategy: ${strategy}.`; }
+  /** @private */
+  private extractEvidence(content: string): string[] { return content.match(/evidence:|data shows/gi) || []; }
+  /** @private */
+  private extractSection(content: string, section: string): string[] { return content.split(section + ':')[1]?.split('\n') || []; }
+  /** @private */
+  private generateNodeId(): string { return `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; }
 
-    return `
-From a ${perspective.replace('_', ' ')}, ${perspectiveInstructions[perspective as keyof typeof perspectiveInstructions]}:
+  // --- Public Monitoring Methods ---
 
-Query: ${query}
-
-Context: ${JSON.stringify(context)}
-
-Provide your analysis and reasoning.
-`;
-  }
-
-  private constructExpansionPrompt(parentNode: ThoughtNode, strategy: string, context: any): string {
-    const strategyInstructions = {
-      deeper_analysis: 'Dive deeper into the analysis with more detail and nuance',
-      alternative_approach: 'Consider an alternative approach or perspective',
-      evidence_examination: 'Examine and strengthen the evidence base'
-    };
-
-    return `
-Building on this thought: "${parentNode.content}"
-
-Using ${strategy.replace('_', ' ')} strategy: ${strategyInstructions[strategy as keyof typeof strategyInstructions]}
-
-Expand and refine the reasoning.
-`;
-  }
-
-  private async identifyContradictions(newContent: string, parentContent: string): Promise<string[]> {
-    // Simple contradiction detection - would be more sophisticated in production
-    const contradictions: string[] = [];
-    
-    if (newContent.includes('not') && parentContent.includes('is')) {
-      contradictions.push('Potential negation contradiction detected');
-    }
-    
-    return contradictions;
-  }
-
-  private extractEvidence(content: string): string[] {
-    // Extract evidence markers from content
-    const evidenceMarkers = content.match(/evidence shows|research indicates|studies demonstrate|data reveals/gi) || [];
-    return evidenceMarkers;
-  }
-
-  private extractAlternatives(content: string): string[] {
-    const alternatives = content.match(/alternatively|another approach|different perspective/gi) || [];
-    return alternatives.map(alt => `Alternative approach identified: ${alt}`);
-  }
-
-  private extractAssumptions(content: string): string[] {
-    const assumptions = content.match(/assuming|if we assume|given that/gi) || [];
-    return assumptions.map(ass => `Assumption: ${ass}`);
-  }
-
-  private extractBiases(content: string): string[] {
-    const biases = content.match(/confirmation bias|availability heuristic|anchoring bias/gi) || [];
-    return biases.map(bias => `Potential bias: ${bias}`);
-  }
-
-  private generateNodeId(): string {
-    return `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  // Public methods for monitoring
-  getThoughtTreeStatistics(): {
-    totalNodes: number;
-    averageDepth: number;
-    branchingFactor: number;
-    pathCount: number;
-  } {
+  /**
+   * Gets statistics about the current state of the thought tree.
+   * @returns {object} An object with statistics about the tree.
+   */
+  public getThoughtTreeStatistics(): any {
     const nodes = Array.from(this.thoughtTree.values());
+    if (nodes.length === 0) return { totalNodes: 0 };
     const depths = nodes.map(n => n.depth);
-    const avgDepth = depths.reduce((a, b) => a + b, 0) / depths.length;
-    const pathCount = this.extractReasoningPaths(nodes).length;
-    
     return {
       totalNodes: nodes.length,
-      averageDepth: avgDepth,
+      averageDepth: depths.reduce((a, b) => a + b, 0) / depths.length,
       branchingFactor: nodes.reduce((sum, n) => sum + n.childIds.length, 0) / nodes.length,
-      pathCount
     };
   }
 
-  clearReasoningTree(): void {
+  /**
+   * Clears the current thought tree and reasoning paths.
+   */
+  public clearReasoningTree(): void {
     this.thoughtTree.clear();
     this.reasoningPaths = [];
   }
