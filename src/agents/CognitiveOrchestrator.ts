@@ -399,7 +399,7 @@ Provide a detailed analysis with reasoning steps and confidence level.
     
     return {
       totalEntries: entries.length,
-      hitRate: totalHits / entries.length,
+      hitRate: entries.length === 0 ? 0 : totalHits / entries.length,
       averageSimilarity: 0.85 // Simplified
     };
   }
