@@ -1,6 +1,6 @@
 # Multi-stage build for SovereigntyOS CronJob - Production Hardened
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:25-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Production stage - Minimal runtime image
-FROM node:20-alpine AS production
+FROM node:25-alpine AS production
 
 # Create non-root user and group
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
