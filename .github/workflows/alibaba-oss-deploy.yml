@@ -198,7 +198,7 @@ jobs:
         retention-days: 30
     
     - name: Create deployment status
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const buildHash = process.env.BUILD_HASH;
